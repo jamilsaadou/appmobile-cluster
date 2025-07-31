@@ -10,6 +10,7 @@ import '../widgets/photo_manager_widget.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../core/services/photo_service.dart';
+import '../widgets/location_widget.dart'; // ← Ajouter cet import
 
 class AddActivityScreen extends StatefulWidget {
   final Site site;
@@ -86,113 +87,18 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
               const SizedBox(height: 20),
 
               // GÉOLOCALISATION (OBLIGATOIRE)
-              Card(
-                color: _locationValidated ? Colors.green.shade50 : Colors.orange.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _locationValidated ? Icons.location_on : Icons.location_off,
-                            color: _locationValidated ? Colors.green : Colors.orange,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Géolocalisation (Obligatoire)',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      
-                      if (_currentPosition != null)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Latitude: ${_currentPosition!.latitude.toStringAsFixed(6)}',
-                              style: TextStyle(fontFamily: 'monospace'),
-                            ),
-                            Text(
-                              'Longitude: ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                              style: TextStyle(fontFamily: 'monospace'),
-                            ),
-                            Text(
-                              'Précision: ${_currentPosition!.accuracy.toStringAsFixed(1)} m',
-                              style: TextStyle(
-                                color: _currentPosition!.accuracy <= 20 
-                                    ? Colors.green 
-                                    : Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      if (_locationError != null)
-                        Text(
-                          _locationError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-
-                      const SizedBox(height: 10),
-                      
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _isGettingLocation ? null : _getCurrentLocation,
-                          icon: _isGettingLocation 
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.my_location),
-                          label: Text(_isGettingLocation 
-                              ? 'Localisation en cours...' 
-                              : 'Obtenir ma position'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _locationValidated 
-                                ? Colors.green 
-                                : Colors.orange,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-
-                      if (!_locationValidated && _currentPosition != null)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            '⚠️ Précision insuffisante (> 20m). Réessayez.',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                      if (_locationValidated)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            '✅ Position validée avec précision < 20m',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+              LocationWidget(
+  onLocationChanged: (position) {
+    setState(() {
+      _currentPosition = position;
+    });
+  },
+  onValidationChanged: (isValid) {
+    setState(() {
+      _locationValidated = isValid;
+    });
+  },
+),
               const SizedBox(height: 20),
 
               // Type d'activité
@@ -304,7 +210,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
               TextFormField(
                 controller: _commentairesController,
                 decoration: const InputDecoration(
-                  labelText: 'Commentaires',
+                  labelText: 'Details de votre activité',
                   border: OutlineInputBorder(),
                   hintText: 'Observations, difficultés rencontrées...',
                 ),
