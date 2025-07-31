@@ -13,6 +13,9 @@ dependencies:
   # HTTP et synchronisation
   http: ^1.1.0
   connectivity_plus: ^5.0.1
+  mime: ^1.0.4
+  http_parser: ^4.0.2 
+
   
   # État et navigation
   provider: ^6.1.1

@@ -57,10 +57,12 @@ class ActivitiesProvider with ChangeNotifier {
     }
   }
 
-// Nouvelle méthode _trySyncActivity simplifiée avec photos intégrées
+// ✅ Méthode _trySyncActivity COMPLÈTEMENT RÉÉCRITE
 Future<void> _trySyncActivity(Activity activity) async {
   try {
     print('🎯 [SYNC] Début sync: ${activity.type}');
+    print('🎯 [SYNC] Local ID: ${activity.localId}');
+    print('🎯 [SYNC] Photos: ${activity.photos?.length ?? 0}');
     
     final cookie = await _storage.read(key: 'auth_cookie');
     if (cookie == null) {
@@ -70,8 +72,9 @@ Future<void> _trySyncActivity(Activity activity) async {
 
     // Préparer les données de base
     final apiData = activity.toApiJson();
+    print('📝 [SYNC] Données API de base: $apiData');
     
-    // Gestion des photos
+    // ✅ Vérifier s'il y a des photos à envoyer
     if (activity.photos != null && activity.photos!.isNotEmpty) {
       print('📸 [SYNC] Activité avec ${activity.photos!.length} photos');
       
@@ -82,38 +85,34 @@ Future<void> _trySyncActivity(Activity activity) async {
         final file = File(fullPath);
         if (await file.exists()) {
           localPaths.add(fullPath);
-          print('✅ [SYNC] Photo trouvée: $photoName');
+          print('✅ [SYNC] Photo trouvée: $photoName -> $fullPath');
         } else {
-          print('❌ [SYNC] Photo manquante: $photoName');
+          print('❌ [SYNC] Photo manquante: $photoName -> $fullPath');
         }
       }
       
       if (localPaths.isNotEmpty) {
-        // Utiliser le nouveau service d'upload intégré
+        print('📸 [SYNC] ${localPaths.length} photos valides trouvées');
+        
+        // ✅ Utiliser le service d'upload corrigé
         final success = await PhotoUploadService.sendActivityWithPhotos(apiData, localPaths);
         
         if (success) {
           print('✅ [SYNC] Activité + photos envoyées avec succès');
-          
-          // Marquer comme synchronisé
-          final db = await DatabaseHelper().database;
-          await db.update(
-            'activities',
-            {'is_synced': 1},
-            where: 'local_id = ?',
-            whereArgs: [activity.localId],
-          );
-          
-          await loadLocalActivities();
+          await _markActivityAsSynced(activity);
         } else {
           print('❌ [SYNC] Échec envoi activité + photos');
         }
         return;
+      } else {
+        print('⚠️ [SYNC] Aucune photo valide trouvée, envoi sans photos');
+        // Continuer sans photos
       }
     }
     
-    // Activité sans photos - méthode normale
-    print('📤 [SYNC] Activité sans photos');
+    // ✅ Activité sans photos OU photos manquantes - méthode normale
+    print('📤 [SYNC] Envoi activité sans photos');
+    print('📤 [SYNC] Données: ${jsonEncode(apiData)}');
     
     final response = await http.post(
       Uri.parse('$apiUrl/activites'),
@@ -124,23 +123,38 @@ Future<void> _trySyncActivity(Activity activity) async {
       body: jsonEncode(apiData),
     ).timeout(const Duration(seconds: 30));
 
+    print('📊 [SYNC] Response code: ${response.statusCode}');
+    print('📄 [SYNC] Response body: ${response.body}');
+
     if (response.statusCode == 201) {
-      print('✅ [SYNC] Activité synchronisée');
-      
-      final db = await DatabaseHelper().database;
-      await db.update(
-        'activities',
-        {'is_synced': 1},
-        where: 'local_id = ?',
-        whereArgs: [activity.localId],
-      );
-      
-      await loadLocalActivities();
+      print('✅ [SYNC] Activité synchronisée sans photos');
+      await _markActivityAsSynced(activity);
     } else {
       print('❌ [SYNC] Erreur: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
     print('💥 [SYNC] Erreur complète: $e');
+    print('💥 [SYNC] Stack trace: ${StackTrace.current}');
+  }
+}
+
+// ✅ NOUVELLE méthode helper pour marquer comme synchronisé
+Future<void> _markActivityAsSynced(Activity activity) async {
+  try {
+    final db = await DatabaseHelper().database;
+    final rowsUpdated = await db.update(
+      'activities',
+      {'is_synced': 1},
+      where: 'local_id = ?',
+      whereArgs: [activity.localId],
+    );
+    
+    print('📝 [SYNC] Activité marquée comme synchronisée: $rowsUpdated lignes mises à jour');
+    
+    // Recharger la liste des activités
+    await loadLocalActivities();
+  } catch (e) {
+    print('💥 [SYNC] Erreur marquage sync: $e');
   }
 }
   // Charger les activités locales

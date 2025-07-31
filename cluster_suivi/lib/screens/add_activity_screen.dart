@@ -7,6 +7,9 @@ import '../core/services/location_service.dart';
 import '../core/providers/activities_provider.dart';
 import '../core/providers/auth_provider.dart';
 import '../widgets/photo_manager_widget.dart';
+import 'dart:convert';
+import 'dart:io';
+import '../core/services/photo_service.dart';
 
 class AddActivityScreen extends StatefulWidget {
   final Site site;
@@ -384,74 +387,171 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     });
   }
 
-  Future<void> _saveActivity() async {
-    if (!_formKey.currentState!.validate() || !_locationValidated) {
-      return;
+// ✅ REMPLACEZ VOTRE MÉTHODE _saveActivity PAR CELLE-CI
+Future<void> _saveActivity() async {
+  if (!_formKey.currentState!.validate() || !_locationValidated) {
+    return;
+  }
+
+  final auth = context.read<AuthProvider>();
+  final user = auth.user!;
+
+  final activity = Activity(
+    type: _typeController.text.trim(),
+    thematique: _thematiqueController.text.trim(),
+    duree: double.parse(_dureeController.text),
+    latitude: _currentPosition!.latitude,
+    longitude: _currentPosition!.longitude,
+    precisionMeters: _currentPosition!.accuracy,
+    hommes: int.tryParse(_hommesController.text) ?? 0,
+    femmes: int.tryParse(_femmesController.text) ?? 0,
+    jeunes: int.tryParse(_jeunesController.text) ?? 0,
+    commentaires: _commentairesController.text.trim().isEmpty 
+        ? null 
+        : _commentairesController.text.trim(),
+    siteId: widget.site.id!,
+    regionId: widget.site.regionId,
+    photos: _photos, // ← Les photos du widget
+  );
+
+  // ✅ LOGS DE DÉBOGAGE DÉTAILLÉS
+  print('🔍 [CREATE] ======== CRÉATION ACTIVITÉ ========');
+  print('🔍 [CREATE] Type: "${activity.type}"');
+  print('🔍 [CREATE] Thématique: "${activity.thematique}"');
+  print('🔍 [CREATE] Durée: ${activity.duree}h');
+  print('🔍 [CREATE] Site ID: ${activity.siteId}');
+  print('🔍 [CREATE] Site nom: "${widget.site.nom}"');
+  print('🔍 [CREATE] Région ID: ${activity.regionId}');
+  print('🔍 [CREATE] Position: ${activity.latitude}, ${activity.longitude}');
+  print('🔍 [CREATE] Précision: ${activity.precisionMeters}m');
+  print('🔍 [CREATE] Bénéficiaires: H=${activity.hommes}, F=${activity.femmes}, J=${activity.jeunes}');
+  print('🔍 [CREATE] Commentaires: "${activity.commentaires ?? "Aucun"}"');
+  print('🔍 [CREATE] Photos count: ${activity.photos?.length ?? 0}');
+  print('🔍 [CREATE] Photos list: ${activity.photos}');
+  print('🔍 [CREATE] Local ID: ${activity.localId}');
+  print('🔍 [CREATE] Date création: ${activity.dateCreation}');
+  print('🔍 [CREATE] Is synced: ${activity.isSynced}');
+
+  // ✅ Vérifier que les photos existent physiquement
+  if (activity.photos != null && activity.photos!.isNotEmpty) {
+    print('🔍 [CREATE] ======== VÉRIFICATION PHOTOS ========');
+    for (int i = 0; i < activity.photos!.length; i++) {
+      final photoName = activity.photos![i];
+      try {
+        final fullPath = await PhotoService.getPhotoPath(photoName);
+        final file = File(fullPath);
+        final exists = await file.exists();
+        
+        print('🔍 [CREATE] Photo ${i+1}/${activity.photos!.length}:');
+        print('   - Nom: "$photoName"');
+        print('   - Chemin: "$fullPath"');
+        print('   - Existe: ${exists ? "✅ OUI" : "❌ NON"}');
+        
+        if (exists) {
+          final size = await file.length();
+          print('   - Taille: ${(size / 1024).toStringAsFixed(1)} KB');
+          
+          // Vérifier que ce n'est pas un fichier vide
+          if (size == 0) {
+            print('   - ⚠️ ATTENTION: Fichier vide!');
+          }
+        }
+      } catch (e) {
+        print('❌ [CREATE] Erreur vérification photo "$photoName": $e');
+      }
     }
+    print('🔍 [CREATE] ========================================');
+  } else {
+    print('🔍 [CREATE] ⚠️ Aucune photo attachée à cette activité');
+  }
 
-    final auth = context.read<AuthProvider>();
-    final user = auth.user!;
+  // ✅ Vérifier les données JSON qui seront envoyées à l'API
+  try {
+    final apiData = activity.toApiJson();
+    print('🔍 [CREATE] ======== DONNÉES API ========');
+    print('🔍 [CREATE] JSON qui sera envoyé à l\'API:');
+    print(jsonEncode(apiData));
+    print('🔍 [CREATE] ===========================');
+  } catch (e) {
+    print('❌ [CREATE] Erreur génération JSON API: $e');
+  }
 
-    final activity = Activity(
-      type: _typeController.text.trim(),
-      thematique: _thematiqueController.text.trim(),
-      duree: double.parse(_dureeController.text),
-      latitude: _currentPosition!.latitude,
-      longitude: _currentPosition!.longitude,
-      precisionMeters: _currentPosition!.accuracy,
-      hommes: int.tryParse(_hommesController.text) ?? 0,
-      femmes: int.tryParse(_femmesController.text) ?? 0,
-      jeunes: int.tryParse(_jeunesController.text) ?? 0,
-      commentaires: _commentairesController.text.trim().isEmpty 
-          ? null 
-          : _commentairesController.text.trim(),
-      siteId: widget.site.id!,
-      regionId: widget.site.regionId,
-      photos: _photos, // ← AJOUTÉ POUR LES PHOTOS
-    );
+  // ✅ Vérifier les données qui seront stockées en base locale
+  try {
+    final dbData = activity.toMap();
+    print('🔍 [CREATE] ======== DONNÉES BASE LOCALE ========');
+    print('🔍 [CREATE] Données qui seront stockées en base:');
+    dbData.forEach((key, value) {
+      print('   $key: $value');
+    });
+    print('🔍 [CREATE] ====================================');
+  } catch (e) {
+    print('❌ [CREATE] Erreur génération données base: $e');
+  }
 
-    // Afficher le dialog de chargement
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 20),
-            Text('Enregistrement...'),
-          ],
-        ),
+  print('🔍 [CREATE] ======== DÉBUT SAUVEGARDE ========');
+
+  // Afficher le dialog de chargement
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 20),
+          Text('Enregistrement...'),
+        ],
       ),
-    );
+    ),
+  );
 
-    final success = await context.read<ActivitiesProvider>().addActivity(activity);
+  // ✅ Enregistrer l'activité avec gestion d'erreur détaillée
+  bool success = false;
+  try {
+    success = await context.read<ActivitiesProvider>().addActivity(activity);
+    print('🔍 [CREATE] Résultat addActivity: $success');
+  } catch (e) {
+    print('❌ [CREATE] Exception lors de addActivity: $e');
+    success = false;
+  }
 
-    // Fermer le dialog
-    if (mounted) Navigator.pop(context);
+  // Fermer le dialog
+  if (mounted) Navigator.pop(context);
 
-    if (success) {
-      // Retour à l'écran précédent
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Activité enregistrée avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de l\'enregistrement'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  print('🔍 [CREATE] ======== RÉSULTAT FINAL ========');
+  if (success) {
+    print('✅ [CREATE] Activité enregistrée avec succès');
+    print('✅ [CREATE] Prochaine étape: synchronisation automatique');
+    
+    // Retour à l'écran précédent
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Activité enregistrée avec ${activity.photos?.length ?? 0} photo(s)'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      Navigator.pop(context);
+    }
+  } else {
+    print('❌ [CREATE] Échec de l\'enregistrement');
+    print('❌ [CREATE] Vérifiez les logs du provider pour plus de détails');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Erreur lors de l\'enregistrement - Vérifiez les logs'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
   }
+  
+  print('🔍 [CREATE] =====================================');
+}
 
   @override
   void dispose() {

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../core/services/photo_service.dart';
+import '../core/services/upload_service.dart'; // à ajouter si pas encore
 
 class PhotoManagerWidget extends StatefulWidget {
   final List<String> photos;
@@ -46,7 +47,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
           ],
         ),
         const SizedBox(height: 10),
-        
+
         // Affichage des photos existantes
         if (_photos.isNotEmpty) ...[
           SizedBox(
@@ -89,6 +90,19 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
             style: TextStyle(color: Colors.orange),
           ),
         ],
+
+        // ✅ Bouton de test d'upload (corrigé)
+        if (_photos.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _testUpload,
+            icon: const Icon(Icons.upload, color: Colors.blue),
+            label: const Text('🧪 Tester upload'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -100,7 +114,6 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
       height: 100,
       child: Stack(
         children: [
-          // Image
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: FutureBuilder<String>(
@@ -117,10 +130,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
                         width: 100,
                         height: 100,
                         color: Colors.grey.shade300,
-                        child: const Icon(
-                          Icons.broken_image,
-                          color: Colors.grey,
-                        ),
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
                       );
                     },
                   );
@@ -129,14 +139,12 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
                     width: 100,
                     height: 100,
                     color: Colors.grey.shade300,
-                    child: const CircularProgressIndicator(),
+                    child: const Center(child: CircularProgressIndicator()),
                   );
                 }
               },
             ),
           ),
-          
-          // Bouton de suppression
           Positioned(
             top: 4,
             right: 4,
@@ -149,11 +157,7 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 16),
               ),
             ),
           ),
@@ -184,8 +188,6 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
 
   Future<void> _deletePhoto(int index) async {
     final String fileName = _photos[index];
-    
-    // Demander confirmation
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -211,6 +213,51 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
         _photos.removeAt(index);
       });
       widget.onPhotosChanged(_photos);
+    }
+  }
+
+  Future<void> _testUpload() async {
+    if (_photos.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text('Test upload...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final photoName = _photos.first;
+      final fullPath = await PhotoService.getPhotoPath(photoName);
+
+      await PhotoUploadService.testImageUpload(fullPath);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Test upload terminé - Voir les logs'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Erreur test: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
