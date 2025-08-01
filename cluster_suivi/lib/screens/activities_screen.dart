@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../core/providers/activities_provider.dart';
 import '../core/providers/auth_provider.dart';
 import '../core/database/models/activity.dart';
+import 'activity_detail_screen.dart';
+
 
 class ActivitiesScreen extends StatefulWidget {
   const ActivitiesScreen({super.key});
@@ -86,18 +88,22 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     );
   }
 
-  Widget _buildActivityCard(Activity activity) {
-    final dateFormatter = DateFormat('dd/MM/yyyy HH:mm');
-    final totalBeneficiaires = activity.hommes + activity.femmes + activity.jeunes;
+// ✅ REMPLACER _buildActivityCard dans activities_screen.dart
+Widget _buildActivityCard(Activity activity) {
+  final dateFormatter = DateFormat('dd/MM/yyyy HH:mm');
+  final totalBeneficiaires = activity.hommes + activity.femmes + activity.jeunes;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+  return Card(
+    margin: const EdgeInsets.only(bottom: 12),
+    child: InkWell( // ← AJOUTER InkWell pour le tap
+      onTap: () => _viewActivityDetail(activity), // ← AJOUTER cette ligne
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête avec type et statut de sync
+            // En-tête avec type et statut
             Row(
               children: [
                 Expanded(
@@ -110,132 +116,132 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   ),
                 ),
                 _buildSyncStatusChip(activity.isSynced),
+                const SizedBox(width: 8),
+                _buildStatusChip(activity.statut), // ← AJOUTER
               ],
             ),
+            // ... reste du code existant ...
+            
+            // ✅ AJOUTER à la fin des children
             const SizedBox(height: 8),
-
-            // Thématique
-            Text(
-              activity.thematique,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.blue,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Informations principales
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('${activity.duree}h'),
-                const SizedBox(width: 20),
-                const Icon(Icons.people, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('$totalBeneficiaires bénéficiaires'),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Détail des bénéficiaires
-            if (totalBeneficiaires > 0)
-              Text(
-                'Hommes: ${activity.hommes} • Femmes: ${activity.femmes} • Jeunes: ${activity.jeunes}',
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-
-            // Géolocalisation
-            if (activity.latitude != null && activity.longitude != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.green),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${activity.latitude!.toStringAsFixed(6)}, ${activity.longitude!.toStringAsFixed(6)}',
-                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                    ),
-                    if (activity.precisionMeters != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '(±${activity.precisionMeters!.toStringAsFixed(1)}m)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: activity.precisionMeters! <= 20 ? Colors.green : Colors.orange,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-            // Commentaires
-            if (activity.commentaires != null && activity.commentaires!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  activity.commentaires!,
-                  style: const TextStyle(
-                    fontSize: 14,
+                Text(
+                  'Appuyez pour voir les détails',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
                     fontStyle: FontStyle.italic,
-                    color: Colors.grey,
                   ),
                 ),
-              ),
-
-            // Date
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                dateFormatter.format(activity.dateCreation),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 12,
+                  color: Colors.grey[600],
                 ),
-              ),
+              ],
             ),
           ],
         ),
       ),
-    );
+    ),
+  );
+}
+
+// ✅ AJOUTER ces méthodes dans _ActivitiesScreenState
+Widget _buildStatusChip(String statut) {
+  Color color;
+  IconData icon;
+  String text;
+  
+  switch (statut) {
+    case 'approuve':
+      color = Colors.green;
+      icon = Icons.check_circle;
+      text = 'Approuvé';
+      break;
+    case 'rejete':
+      color = Colors.red;
+      icon = Icons.cancel;
+      text = 'Refusé';
+      break;
+    default:
+      color = Colors.orange;
+      icon = Icons.schedule;
+      text = 'En attente';
   }
 
-  Widget _buildSyncStatusChip(bool isSynced) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: isSynced ? Colors.green.shade100 : Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isSynced ? Colors.green : Colors.orange,
-          width: 1,
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 11,
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isSynced ? Icons.cloud_done : Icons.cloud_upload,
-            size: 16,
-            color: isSynced ? Colors.green : Colors.orange,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            isSynced ? 'Synchronisé' : 'En attente',
-            style: TextStyle(
-              fontSize: 12,
-              color: isSynced ? Colors.green : Colors.orange,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
+void _viewActivityDetail(Activity activity) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ActivityDetailScreen(activity: activity),
+    ),
+  ).then((_) {
+    // Recharger les activités au retour
+    context.read<ActivitiesProvider>().loadLocalActivities();
+  });
+}
+  // ✅ REMPLACER la méthode _buildSyncStatusChip pour gérer le nouveau modèle
+Widget _buildSyncStatusChip(bool isSynced) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: isSynced ? Colors.green.shade100 : Colors.orange.shade100,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: isSynced ? Colors.green : Colors.orange,
+        width: 1,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isSynced ? Icons.cloud_done : Icons.cloud_upload,
+          size: 16,
+          color: isSynced ? Colors.green : Colors.orange,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          isSynced ? 'Synchronisé' : 'En attente',
+          style: TextStyle(
+            fontSize: 12,
+            color: isSynced ? Colors.green : Colors.orange,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    ),
+  );
+}
   Future<void> _syncActivities() async {
     // Afficher un indicateur de chargement
     showDialog(

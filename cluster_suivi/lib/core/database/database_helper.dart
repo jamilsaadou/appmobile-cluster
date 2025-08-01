@@ -50,8 +50,8 @@ class DatabaseHelper {
       )
     ''');
 
-    // Table pour les activités
-   await db.execute('''
+// ✅ REMPLACER la création de la table activities par :
+await db.execute('''
   CREATE TABLE activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     local_id TEXT UNIQUE NOT NULL,
@@ -69,7 +69,9 @@ class DatabaseHelper {
     region_id INTEGER,
     date_creation TEXT,
     is_synced INTEGER DEFAULT 0,
-    photos TEXT
+    photos TEXT,
+    statut TEXT DEFAULT 'en_attente',
+    motif_refus TEXT
   )
 ''');
   }

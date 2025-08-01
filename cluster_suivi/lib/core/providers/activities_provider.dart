@@ -220,4 +220,82 @@ Future<void> _markActivityAsSynced(Activity activity) async {
 
     return syncCount;
   }
+  // ✅ AJOUTER CES MÉTHODES dans activities_provider.dart
+
+// Récupérer une activité par ID
+Future<Activity?> getActivityById(dynamic id) async {
+  try {
+    final db = await DatabaseHelper().database;
+    
+    List<Map<String, dynamic>> results;
+    if (id is String) {
+      // Recherche par local_id
+      results = await db.query(
+        'activities',
+        where: 'local_id = ?',
+        whereArgs: [id],
+      );
+    } else {
+      // Recherche par id
+      results = await db.query(
+        'activities',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    if (results.isNotEmpty) {
+      return Activity.fromMap(results.first);
+    }
+    return null;
+  } catch (e) {
+    print('💥 Erreur getActivityById: $e');
+    return null;
+  }
+}
+
+// Mettre à jour une activité
+Future<bool> updateActivity(Activity activity) async {
+  try {
+    print('🔄 [UPDATE] Début mise à jour activité: ${activity.type}');
+    
+    final db = await DatabaseHelper().database;
+    
+    // Mettre à jour en base locale
+    final activityMap = activity.toMap();
+    activityMap['is_synced'] = 0; // Marquer comme non synchronisé
+    
+    int rowsUpdated;
+    if (activity.id != null) {
+      rowsUpdated = await db.update(
+        'activities',
+        activityMap,
+        where: 'id = ?',
+        whereArgs: [activity.id],
+      );
+    } else {
+      rowsUpdated = await db.update(
+        'activities',
+        activityMap,
+        where: 'local_id = ?',
+        whereArgs: [activity.localId],
+      );
+    }
+    
+    print('✅ [UPDATE] Activité mise à jour: $rowsUpdated lignes affectées');
+    
+    // Recharger la liste
+    await loadLocalActivities();
+    
+    // Essayer de synchroniser immédiatement
+    await _trySyncActivity(activity);
+    
+    return rowsUpdated > 0;
+  } catch (e) {
+    print('💥 [UPDATE] Erreur updateActivity: $e');
+    _error = 'Erreur lors de la mise à jour: $e';
+    notifyListeners();
+    return false;
+  }
+}
 }

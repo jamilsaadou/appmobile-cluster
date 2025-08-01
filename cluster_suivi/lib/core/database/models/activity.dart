@@ -16,6 +16,8 @@ class Activity {
   final DateTime dateCreation;
   final bool isSynced;
   final List<String>? photos;
+  final String statut; // ← CHAMP AJOUTÉ
+  final String? motifRefus; // ← CHAMP AJOUTÉ pour le motif de refus
 
   Activity({
     this.id,
@@ -35,6 +37,8 @@ class Activity {
     DateTime? dateCreation,
     this.isSynced = false,
     this.photos,
+    this.statut = 'en_attente', // ← VALEUR PAR DÉFAUT
+    this.motifRefus, // ← NOUVEAU CHAMP
   }) : localId = localId ?? DateTime.now().millisecondsSinceEpoch.toString(),
        dateCreation = dateCreation ?? DateTime.now();
 
@@ -57,6 +61,8 @@ class Activity {
       'date_creation': dateCreation.toIso8601String(),
       'is_synced': isSynced ? 1 : 0,
       'photos': photos != null ? photos!.join(',') : null,
+      'statut': statut, // ← AJOUTÉ
+      'motif_refus': motifRefus, // ← AJOUTÉ
     };
   }
 
@@ -81,6 +87,8 @@ class Activity {
       photos: map['photos'] != null && map['photos'].toString().isNotEmpty 
           ? map['photos'].toString().split(',') 
           : null,
+      statut: map['statut'] ?? 'en_attente', // ← AJOUTÉ avec valeur par défaut
+      motifRefus: map['motif_refus'], // ← AJOUTÉ
     );
   }
 
@@ -103,5 +111,50 @@ class Activity {
       'commentaires': commentaires,
       'photos': photos ?? [],
     };
+  }
+
+  // ✅ NOUVELLE MÉTHODE : Copier avec modifications
+  Activity copyWith({
+    int? id,
+    String? localId,
+    String? type,
+    String? thematique,
+    double? duree,
+    double? latitude,
+    double? longitude,
+    double? precisionMeters,
+    int? hommes,
+    int? femmes,
+    int? jeunes,
+    String? commentaires,
+    int? siteId,
+    int? regionId,
+    DateTime? dateCreation,
+    bool? isSynced,
+    List<String>? photos,
+    String? statut,
+    String? motifRefus,
+  }) {
+    return Activity(
+      id: id ?? this.id,
+      localId: localId ?? this.localId,
+      type: type ?? this.type,
+      thematique: thematique ?? this.thematique,
+      duree: duree ?? this.duree,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      precisionMeters: precisionMeters ?? this.precisionMeters,
+      hommes: hommes ?? this.hommes,
+      femmes: femmes ?? this.femmes,
+      jeunes: jeunes ?? this.jeunes,
+      commentaires: commentaires ?? this.commentaires,
+      siteId: siteId ?? this.siteId,
+      regionId: regionId ?? this.regionId,
+      dateCreation: dateCreation ?? this.dateCreation,
+      isSynced: isSynced ?? this.isSynced,
+      photos: photos ?? this.photos,
+      statut: statut ?? this.statut,
+      motifRefus: motifRefus ?? this.motifRefus,
+    );
   }
 }
