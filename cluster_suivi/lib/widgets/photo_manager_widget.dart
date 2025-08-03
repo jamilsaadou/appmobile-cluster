@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../core/services/photo_service.dart';
-import '../core/services/upload_service.dart'; // à ajouter si pas encore
 
 class PhotoManagerWidget extends StatefulWidget {
   final List<String> photos;
@@ -85,21 +84,27 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
             ],
           ),
         ] else ...[
-          const Text(
-            'Nombre maximum de photos atteint',
-            style: TextStyle(color: Colors.orange),
-          ),
-        ],
-
-        // ✅ Bouton de test d'upload (corrigé)
-        if (_photos.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _testUpload,
-            icon: const Icon(Icons.upload, color: Colors.blue),
-            label: const Text('🧪 Tester upload'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange[300]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Nombre maximum de photos atteint (${widget.maxPhotos})',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -213,51 +218,6 @@ class _PhotoManagerWidgetState extends State<PhotoManagerWidget> {
         _photos.removeAt(index);
       });
       widget.onPhotosChanged(_photos);
-    }
-  }
-
-  Future<void> _testUpload() async {
-    if (_photos.isEmpty) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 20),
-            Text('Test upload...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final photoName = _photos.first;
-      final fullPath = await PhotoService.getPhotoPath(photoName);
-
-      await PhotoUploadService.testImageUpload(fullPath);
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Test upload terminé - Voir les logs'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Erreur test: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 }
